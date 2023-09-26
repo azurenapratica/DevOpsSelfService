@@ -1,0 +1,12 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: AzureFunctionApp@1
+  displayName: 'Azure functions app deploy'
+  inputs:
+    azureSubscription: '[[azureSubscription]]'
+    appType: functionApp
+    appName: ${{ parameters.RepositoryName }}
+    package: '$(Agent.BuildDirectory)/**/*.zip'

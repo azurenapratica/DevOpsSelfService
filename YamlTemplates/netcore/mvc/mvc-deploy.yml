@@ -1,0 +1,13 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: AzureWebApp@1
+  displayName: Deploy
+  inputs:
+    azureSubscription: '[[azureSubscription]]'
+    appType: 'webApp'
+    appName: ${{ parameters.RepositoryName }}
+    package: '$(Agent.BuildDirectory)/**/*.zip'
+    deploymentMethod: 'auto'

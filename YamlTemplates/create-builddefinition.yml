@@ -1,0 +1,17 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo $(PAT) | az devops login --org "$(System.TeamFoundationCollectionUri)"
+      az devops configure --defaults organization="$(System.TeamFoundationCollectionUri)" project="$(System.TeamProject)"
+      Write-Host "===Criação da Build Definition ${{ parameters.RepositoryName }}"
+      $createBuild = az pipelines create --name "${{ parameters.RepositoryName }}" --branch main --description "Build Principal" --org "$(System.TeamFoundationCollectionUri)" --project "$(System.TeamProject)" --repository "$(remoteUrl)" --repository-type "tfsgit" --skip-first-run true --yaml-path "azure-pipelines.yml" | ConvertFrom-Json
+      Write-Host $createBuild.createdDate
+      az devops logout
+    pwsh: true
+  displayName: Create Build Definition ${{ parameters.RepositoryName }}

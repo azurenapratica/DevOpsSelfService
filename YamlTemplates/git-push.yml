@@ -1,0 +1,18 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host "Initializing push"
+      Set-Location $(currentDir)/${{ parameters.RepositoryName }}    
+      Write-Host "Push inicial de aplicação exemplo"
+      git add .
+      git commit -m "Primeiro commit no novo repositorio"
+      git remote add origin "$(URLIni)$(URLFim)"
+      git push origin main --quiet
+    pwsh: true
+  displayName: Repository Git Push

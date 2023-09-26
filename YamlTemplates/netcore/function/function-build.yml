@@ -1,0 +1,17 @@
+steps:
+- task: DotNetCoreCLI@2
+  displayName: .Net Core Build
+  inputs:
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--output $(System.DefaultWorkingDirectory)/publish_output --configuration $(buildConfiguration)'
+- task: ArchiveFiles@2
+  displayName: Archive files
+  inputs:
+    rootFolderOrFile: '$(System.DefaultWorkingDirectory)/publish_output'
+    includeRootFolder: false
+    archiveType: zip
+    archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+    replaceExistingArchive: true
+- task: PublishBuildArtifacts@1
+  displayName: Artifacts Publish

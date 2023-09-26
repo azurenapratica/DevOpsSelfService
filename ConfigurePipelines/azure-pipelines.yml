@@ -1,0 +1,38 @@
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+    - repository: YamlTemplates
+      type: git
+      name: CloudMorning/YamlTemplates
+      ref: refs/heads/main
+    - repository: IaC
+      type: git
+      name: CloudMorning/IaC
+      ref: refs/heads/main
+
+parameters:
+  - name: RepositoryName
+    displayName: Repository Name
+    type: string
+    default: ""
+  - name: ApplicationType
+    displayName: Select Application Type
+    type: string
+    default: .Net Core MVC
+    values:
+    - .Net Core MVC
+    - .Net Core Function
+    - .Net Core Web API
+    - Java BackEnd
+    - Azure SQL Database 
+
+extends:
+  template: configurepipelines.yml@YamlTemplates
+  parameters:
+    RepositoryName: ${{ parameters.RepositoryName }}
+    ApplicationType: ${{ parameters.ApplicationType }}

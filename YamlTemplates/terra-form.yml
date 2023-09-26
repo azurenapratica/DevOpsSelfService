@@ -1,0 +1,112 @@
+parameters:
+- name: RepositoryName
+  type: string
+- name: TerraFormFolder
+  type: string  
+
+steps:
+- task: PowerShell@2
+  displayName: Set Variables
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host "##vso[task.setvariable variable=TF_VAR_RESOURCE_GROUP_NAME_STATE;]${{ parameters.RepositoryName }}-state-rg"
+      Write-Host "##vso[task.setvariable variable=TF_VAR_LOCATION_STATE;]eastus2"
+      Write-Host "##vso[task.setvariable variable=TF_VAR_STORAGE_ACCOUNT_NAME_STATE;]${{ parameters.RepositoryName }}saestate"
+      Write-Host "##vso[task.setvariable variable=TF_VAR_CONTAINER_NAME_STATE;]${{ parameters.RepositoryName }}containerstate"
+      Write-Host "##vso[task.setvariable variable=TF_VAR_RESOURCE_GROUP_NAME;]${{ parameters.RepositoryName }}-rg"
+      Write-Host "##vso[task.setvariable variable=TF_VAR_LOCATION;]eastus2"
+    pwsh: true
+- task: AzureCLI@2
+  displayName: Create Backend TerraForm
+  inputs:
+    azureSubscription: '[[azureSubscription]]'
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az group create --location $(TF_VAR_LOCATION_STATE) --name $(TF_VAR_RESOURCE_GROUP_NAME_STATE)
+      az storage account create --name $(TF_VAR_STORAGE_ACCOUNT_NAME_STATE) --resource-group $(TF_VAR_RESOURCE_GROUP_NAME_STATE) --location $(TF_VAR_LOCATION_STATE) --sku Standard_LRS --encryption-services blob
+      az storage container create --name $(TF_VAR_CONTAINER_NAME_STATE) --account-name $(TF_VAR_STORAGE_ACCOUNT_NAME_STATE)
+      $ACCOUNT_KEY=$(az storage account keys list --resource-group $(TF_VAR_RESOURCE_GROUP_NAME_STATE) --account-name $(TF_VAR_STORAGE_ACCOUNT_NAME_STATE) --query [0].value -o tsv)
+  env:
+      ARM_ACCESS_KEY: $ACCOUNT_KEY
+- ${{ if eq(parameters['TerraFormFolder'], 'netcoremvc') }}:
+  - task: PowerShell@2
+    displayName: Set NetCoreMVC Variables
+    inputs:
+      targetType: 'inline'
+      script: |  
+        Write-Host "##vso[task.setvariable variable=TF_VAR_SERVICE_PLAN;]${{ parameters.RepositoryName }}-sp"
+        Write-Host "##vso[task.setvariable variable=TF_VAR_APP_SERVICE;]${{ parameters.RepositoryName }}"
+      pwsh: true
+- ${{ if eq(parameters['TerraFormFolder'], 'netcorefunction') }}:
+  - task: PowerShell@2
+    displayName: Set NetCoreFunction Variables
+    inputs:
+      targetType: 'inline'
+      script: |  
+        Write-Host "##vso[task.setvariable variable=TF_VAR_SERVICE_PLAN;]${{ parameters.RepositoryName }}-sp"
+        Write-Host "##vso[task.setvariable variable=TF_VAR_STORAGE_ACCOUNT;]${{ parameters.RepositoryName }}sa"
+        Write-Host "##vso[task.setvariable variable=TF_VAR_FUNCTION_APP;]${{ parameters.RepositoryName }}"
+      pwsh: true
+- task: TerraformInstaller@0
+  displayName: Install TerraForm
+  inputs:
+    terraformVersion: '1.2.9'
+- task: TerraformTaskV2@2
+  displayName: TerraForm Init
+  inputs:
+    provider: 'azurerm'
+    command: 'init'
+    workingDirectory: '$(Build.SourcesDirectory)/IaC/terraform/${{ parameters.TerraFormFolder }}'
+    backendServiceArm: '[[azureSubscription]]'
+    backendAzureRmResourceGroupName: '$(TF_VAR_RESOURCE_GROUP_NAME_STATE)'
+    backendAzureRmStorageAccountName: '$(TF_VAR_STORAGE_ACCOUNT_NAME_STATE)'
+    backendAzureRmContainerName: '$(TF_VAR_CONTAINER_NAME_STATE)'
+    backendAzureRmKey: 'terraform.tfstate'
+- ${{ if eq(parameters['TerraFormFolder'], 'netcoremvc') }}:
+  - task: TerraformTaskV2@2
+    displayName: TerraForm Plan NetCoreMVC
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(Build.SourcesDirectory)/IaC/terraform/${{ parameters.TerraFormFolder }}'
+      environmentServiceNameAzureRM: '[[azureSubscription]]'
+    env:
+      SERVICE_PLAN: $(TF_VAR_SERVICE_PLAN)
+      APP_SERVICE: $(TF_VAR_APP_SERVICE)
+  - task: TerraformTaskV2@2
+    displayName: TerraForm Apply NetCoreMVC
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(Build.SourcesDirectory)/IaC/terraform/${{ parameters.TerraFormFolder }}'
+      commandOptions: '-auto-approve'
+      environmentServiceNameAzureRM: '[[azureSubscription]]'
+    env:
+      SERVICE_PLAN: $(TF_VAR_SERVICE_PLAN)
+      APP_SERVICE: $(TF_VAR_APP_SERVICE)    
+- ${{ if eq(parameters['TerraFormFolder'], 'netcorefunction') }}:
+  - task: TerraformTaskV2@2
+    displayName: TerraForm Plan NetCoreFunction
+    inputs:
+      provider: 'azurerm'
+      command: 'plan'
+      workingDirectory: '$(Build.SourcesDirectory)/IaC/terraform/${{ parameters.TerraFormFolder }}'
+      environmentServiceNameAzureRM: '[[azureSubscription]]'
+    env:
+      STORAGE_ACCOUNT: $(TF_VAR_STORAGE_ACCOUNT)
+      SERVICE_PLAN: $(TF_VAR_SERVICE_PLAN)
+      FUNCTION_APP: $(TF_VAR_FUNCTION_APP)
+  - task: TerraformTaskV2@2
+    displayName: TerraForm Apply NetCoreFunction
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(Build.SourcesDirectory)/IaC/terraform/${{ parameters.TerraFormFolder }}'
+      commandOptions: '-auto-approve'
+      environmentServiceNameAzureRM: '[[azureSubscription]]'
+    env:
+      STORAGE_ACCOUNT: $(TF_VAR_STORAGE_ACCOUNT)
+      SERVICE_PLAN: $(TF_VAR_SERVICE_PLAN)
+      FUNCTION_APP: $(TF_VAR_FUNCTION_APP)

@@ -1,0 +1,84 @@
+parameters:
+- name: RepositoryName
+  type: string
+- name: ApplicationType
+  type: string
+
+variables:
+- group: devops
+- name: currentDir
+  value: "$(Build.SourcesDirectory)"
+- name: YamlFolder
+  ${{ if eq(parameters['ApplicationType'], '.Net Core MVC') }}:
+    value: "mvc"
+  ${{ if eq(parameters['ApplicationType'], '.Net Core Function') }}:
+    value: "function"
+
+stages:
+- stage: CreateRepository
+  dependsOn: []
+  displayName: Create Repository ${{ parameters.RepositoryName }}
+  jobs:
+  - job: CreateRepository
+    displayName: Create Repository ${{ parameters.RepositoryName }}
+    steps:
+    - checkout: YamlTemplates
+      displayName: Checkout YamlTemplates
+    - template: create-repository.yml
+      parameters:
+        RepositoryName: ${{ parameters.RepositoryName }}
+    - template: git-init.yml
+      parameters:
+        RepositoryName: ${{ parameters.RepositoryName }}
+        YamlFolder: $(YamlFolder)
+    - ${{ if eq(parameters['ApplicationType'], '.Net Core MVC') }}:
+      - template: netcore/mvc/create-project.yml
+        parameters:
+          RepositoryName: ${{ parameters.RepositoryName }}
+          ApplicationType: ${{ parameters.ApplicationType }}
+    - ${{ if eq(parameters['ApplicationType'], '.Net Core Function') }}:
+      - template: netcore/function/create-project.yml
+        parameters:
+          RepositoryName: ${{ parameters.RepositoryName }}
+          ApplicationType: ${{ parameters.ApplicationType }}
+    - template: git-push.yml
+      parameters:
+        RepositoryName: ${{ parameters.RepositoryName }}
+    - template: create-builddefinition.yml
+      parameters:
+        RepositoryName: ${{ parameters.RepositoryName }}
+- stage: ProvideIaC
+  dependsOn: CreateRepository
+  displayName: Provide IaC ${{ parameters.RepositoryName }}
+  jobs:
+  - job: ProvideIaC
+    displayName: Provide IaC to ${{ parameters.RepositoryName }}
+    steps:
+    - checkout: YamlTemplates
+      displayName: Checkout YamlTemplates
+    - checkout: IaC
+      displayName: Checkout IaC
+    - ${{ if eq(parameters['ApplicationType'], '.Net Core MVC') }}:
+      - template: terra-form.yml
+        parameters:
+          RepositoryName: ${{ parameters.RepositoryName }}
+          TerraFormFolder: "netcoremvc"
+    - ${{ if eq(parameters['ApplicationType'], '.Net Core Function') }}:
+      - template: terra-form.yml
+        parameters:
+          RepositoryName: ${{ parameters.RepositoryName }}
+          TerraFormFolder: "netcorefunction"          
+- stage: DeployApp
+  dependsOn: ProvideIaC
+  displayName: Deploy App ${{ parameters.ApplicationType }}
+  jobs:
+  - deployment: DeployApp
+    displayName: Deploy App ${{ parameters.ApplicationType }}
+    environment: 'DeployApp'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: queue-build.yml
+            parameters:
+              RepositoryName: ${{ parameters.RepositoryName }}

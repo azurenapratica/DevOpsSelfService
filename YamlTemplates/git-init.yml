@@ -1,0 +1,26 @@
+parameters:
+- name: RepositoryName
+  type: string
+- name: YamlFolder
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host $(currentDir)
+      Set-Location $(currentDir)
+      New-Item -Path ${{ parameters.RepositoryName }} -ItemType Directory
+      Set-Location $(currentDir)/${{ parameters.RepositoryName }}
+      git config --global user.email "vinijmoura@hotmail.com"
+      git config --global user.name "Vinicius Moura"
+      git config --global init.defaultBranch main
+      git init
+      $FolderExists = Get-ChildItem $(currentDir) -Filter ${{ parameters.YamlFolder }} -Recurse -Directory
+      $FolderProjectType = $FolderExists.FullName
+      Copy-Item -Path "$FolderProjectType/azure-pipelines.yml" -Destination $(currentDir)/${{ parameters.RepositoryName }}
+      ((Get-Content -path "$(currentDir)/${{ parameters.RepositoryName }}/azure-pipelines.yml" -Raw) -replace '__APP-TYPE__','${{ parameters.RepositoryName }}') | Set-Content -Path "$(currentDir)/${{ parameters.RepositoryName }}/azure-pipelines.yml"
+      git checkout -b main
+    pwsh: true
+  displayName: Repository Git Init

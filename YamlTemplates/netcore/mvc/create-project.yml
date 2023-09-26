@@ -1,0 +1,18 @@
+parameters:
+- name: RepositoryName
+  type: string
+- name: ApplicationType
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      Set-Location $(currentDir)/${{ parameters.RepositoryName }}
+      dotnet new gitignore
+      dotnet new sln --name ${{ parameters.RepositoryName }}
+      dotnet new mvc --name ${{ parameters.RepositoryName }}
+      dotnet sln add $(currentDir)/${{ parameters.RepositoryName }}/${{ parameters.RepositoryName }}/${{ parameters.RepositoryName }}.csproj
+    pwsh: true
+  displayName: Create ${{ parameters.ApplicationType }}

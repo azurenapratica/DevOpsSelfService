@@ -1,0 +1,42 @@
+trigger:
+- none
+
+resources:
+  repositories:
+    - repository: YamlTemplates
+      type: git
+      name: CloudMorning/YamlTemplates
+      ref: refs/heads/main
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+stages:
+- stage: Build
+  displayName: Build .Net Core
+  jobs: 
+  - job: DotNetCoreBuild
+    displayName: Build .Net Core
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - template: netcore/mvc/mvc-build.yml@YamlTemplates
+- stage: Deploy
+  displayName: Deploy
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    environment: 'Deploy'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - template: netcore/mvc/mvc-deploy.yml@YamlTemplates
+            parameters:
+              RepositoryName: '__APP-TYPE__'
+

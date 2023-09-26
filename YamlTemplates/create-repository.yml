@@ -1,0 +1,21 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo $(PAT) | az devops login --org "$(System.TeamFoundationCollectionUri)"
+      az devops configure --defaults organization="$(System.TeamFoundationCollectionUri)" project="$(System.TeamProject)"
+      $createRepo = az repos create --name ${{ parameters.RepositoryName }} --org "$(System.TeamFoundationCollectionUri)" -p "$(System.TeamProject)" | ConvertFrom-Json
+      $remoteUrl=$createRepo.remoteUrl
+      $URLIni = "$($createRepo.remoteUrl.Substring(0,$createRepo.remoteUrl.IndexOf('@'))):$(PAT)"
+      $URLFim = "$($createRepo.remoteUrl.Substring($createRepo.remoteUrl.IndexOf('@'),($createRepo.remoteUrl.Length-$createRepo.remoteUrl.IndexOf('@'))))"
+      Write-Host "##vso[task.setvariable variable=remoteUrl;]$remoteUrl"
+      Write-Host "##vso[task.setvariable variable=URLIni;]$URLIni"
+      Write-Host "##vso[task.setvariable variable=URLFim;]$URLFim"
+      az devops logout
+    pwsh: true
+  displayName: Create Repository ${{ parameters.RepositoryName }}

@@ -1,0 +1,17 @@
+parameters:
+- name: RepositoryName
+  type: string
+
+steps:
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      echo $(PAT) | az devops login --org "$(System.TeamFoundationCollectionUri)"
+      az devops configure --defaults organization="$(System.TeamFoundationCollectionUri)" project="$(System.TeamProject)"
+      Write-Host "======Enfileiramento da Build Principal ${{ parameters.RepositoryName }}"
+      $queueBuild = az pipelines build queue --branch main --definition-name "${{ parameters.RepositoryName }}" --org "$(System.TeamFoundationCollectionUri)" --project "$(System.TeamProject)" | ConvertFrom-Json
+      Write-Host $queueBuild.buildNumber
+      az devops logout
+    pwsh: true
+  displayName: Queue Build Definition ${{ parameters.RepositoryName }}      
